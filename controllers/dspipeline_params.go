@@ -457,13 +457,13 @@ func (p *DSPAParams) SetupObjectParams(ctx context.Context, dsp *dspa.DataScienc
 
 		// Retrieve ObjStore Creds from specified secret.  Ignore error if the secret simply doesn't exist (will be created later)
 		accesskey, err := p.RetrieveSecret(ctx, client, p.ObjectStorageConnection.CredentialsSecret.SecretName, p.ObjectStorageConnection.CredentialsSecret.AccessKey, log)
-		if err != nil && !apierrs.IsNotFound(err) {
-			log.Error(err, "Unexpected error encountered while fetching Object Storage Secret")
+		if err != nil && !apierrs.IsNotFound(err) && !securityTokenServiceCredsFound() {
+			log.Error(err, "Unexpected error encountered while resolving Object Storage Secret")
 			return err
 		}
 		secretkey, err := p.RetrieveSecret(ctx, client, p.ObjectStorageConnection.CredentialsSecret.SecretName, p.ObjectStorageConnection.CredentialsSecret.SecretKey, log)
-		if err != nil && !apierrs.IsNotFound(err) {
-			log.Error(err, "Unexpected error encountered while fetching Object Storage Secret")
+		if err != nil && !apierrs.IsNotFound(err) && !securityTokenServiceCredsFound() {
+			log.Error(err, "Unexpected error encountered while resolving Object Storage Secret")
 			return err
 		}
 		p.ObjectStorageConnection.AccessKeyID = accesskey
@@ -688,6 +688,13 @@ func ensureManagedPipelinesInitResourceDefaults(mp *dspa.ManagedPipelinesSpec) {
 			r.Limits.Memory = def.Limits.Memory
 		}
 	}
+}
+
+// securityTokenServiceCredsFound checks if the environment variables for AWS role ARN and web identity token file are set.
+func securityTokenServiceCredsFound() bool {
+	awsRoleArnVar := os.Getenv("AWS_ROLE_ARN")
+	awsWebIdentityTokenFileVar := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
+	return awsRoleArnVar != "" && awsWebIdentityTokenFileVar != ""
 }
 
 // ensureManagedPipelinesVolumeSizeLimit sets a default emptyDir sizeLimit and validates the quantity when set.
